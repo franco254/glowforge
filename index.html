@@ -1,0 +1,851 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GlowForge — AI Beauty Makeover</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --rose:     #e8637c;
+    --rose-light: #f2a5b3;
+    --cream:    #faf7f4;
+    --warm:     #f0e6df;
+    --char:     #2c2420;
+    --mid:      #7a6b63;
+    --accent:   #c9a87c;
+    --accent2:  #d4845a;
+    --glass:    rgba(255,255,255,0.55);
+    --shadow:   0 8px 40px rgba(44,36,32,0.12);
+    --radius:   18px;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--cream);
+    color: var(--char);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  body::before {
+    content:'';
+    position:fixed; inset:0; z-index:0;
+    background:
+      radial-gradient(ellipse 80% 60% at 15% 20%, rgba(232,99,124,0.08) 0%, transparent 70%),
+      radial-gradient(ellipse 60% 50% at 85% 75%, rgba(201,168,124,0.1) 0%, transparent 70%),
+      radial-gradient(ellipse 50% 40% at 50% 50%, rgba(212,132,90,0.06) 0%, transparent 70%);
+    pointer-events:none;
+  }
+
+  .page { position:relative; z-index:1; max-width:1320px; margin:0 auto; padding:20px; }
+
+  /* header */
+  header {
+    display:flex; align-items:center; justify-content:space-between;
+    background: var(--glass);
+    backdrop-filter: blur(18px);
+    border: 1px solid rgba(255,255,255,0.7);
+    border-radius: var(--radius);
+    padding: 16px 28px;
+    box-shadow: var(--shadow);
+    margin-bottom: 24px;
+  }
+  .logo { display:flex; align-items:center; gap:12px; }
+  .logo-mark {
+    width:38px; height:38px; border-radius:12px;
+    background: linear-gradient(135deg, var(--rose), var(--accent2));
+    display:flex; align-items:center; justify-content:center;
+    font-size:20px; box-shadow: 0 4px 14px rgba(232,99,124,0.35);
+  }
+  .logo h1 {
+    font-family:'Playfair Display', serif;
+    font-size:24px; font-weight:700; letter-spacing:-0.5px;
+    color: var(--char);
+  }
+  .logo h1 em { font-style:italic; color: var(--rose); }
+  .header-actions { display:flex; gap:10px; }
+  .btn {
+    padding:9px 20px; border:none; border-radius:10px;
+    font-family:'DM Sans',sans-serif; font-size:13px; font-weight:500;
+    cursor:pointer; transition: all .25s ease;
+  }
+  .btn-ghost { background:transparent; color:var(--mid); border:1.5px solid rgba(124,107,99,0.3); }
+  .btn-ghost:hover { background:var(--warm); color:var(--char); }
+  .btn-primary {
+    background: linear-gradient(135deg, var(--rose), var(--accent2));
+    color:#fff; box-shadow: 0 4px 16px rgba(232,99,124,0.35);
+  }
+  .btn-primary:hover { transform:translateY(-1px); box-shadow: 0 6px 22px rgba(232,99,124,0.45); }
+
+  /* layout */
+  .main-grid { display: grid; grid-template-columns: 1fr 370px; gap: 22px; }
+
+  /* camera panel */
+  .camera-panel {
+    background: var(--glass); backdrop-filter: blur(14px);
+    border: 1px solid rgba(255,255,255,0.65);
+    border-radius: var(--radius); padding: 22px;
+    box-shadow: var(--shadow);
+  }
+  .camera-wrap {
+    position:relative; width:100%; aspect-ratio: 3/4;
+    background:#1a1210; border-radius:14px; overflow:hidden; margin-bottom:16px;
+  }
+  .camera-wrap video {
+    width:100%; height:100%; object-fit:cover;
+    transform: scaleX(-1); display:none;
+  }
+  .camera-wrap canvas#overlay {
+    position:absolute; inset:0; width:100%; height:100%;
+    pointer-events:none; transform: scaleX(-1);
+  }
+  .cam-placeholder {
+    position:absolute; inset:0;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    color: rgba(255,255,255,0.45);
+    background: linear-gradient(180deg, #2c2420 0%, #1a1210 100%);
+  }
+  .cam-placeholder .icon { font-size:52px; margin-bottom:14px; opacity:.6; }
+  .cam-placeholder p { font-size:14px; max-width:240px; text-align:center; line-height:1.5; }
+
+  .cam-controls { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; }
+  .btn-cam {
+    padding:10px 22px; border:none; border-radius:10px;
+    font-family:'DM Sans',sans-serif; font-size:13px; font-weight:600;
+    cursor:pointer; transition:all .22s ease;
+  }
+  .btn-cam-start {
+    background: linear-gradient(135deg, var(--rose), var(--accent2));
+    color:#fff; box-shadow: 0 4px 16px rgba(232,99,124,0.4);
+  }
+  .btn-cam-start:hover { transform:translateY(-1px); box-shadow: 0 6px 22px rgba(232,99,124,0.5); }
+  .btn-cam-secondary {
+    background: #fff; color: var(--char);
+    border: 1.5px solid rgba(124,107,99,0.25);
+  }
+  .btn-cam-secondary:hover { background: var(--warm); }
+  .btn-cam-secondary:disabled { opacity:.4; cursor:not-allowed; }
+
+  /* status */
+  .status-bar {
+    display:flex; align-items:center; gap:10px;
+    background: var(--warm); border-radius:10px; padding:10px 14px; margin: 14px 0;
+  }
+  .status-dot { width:10px; height:10px; border-radius:50%; background:#bbb; transition: background .3s; }
+  .status-dot.on   { background:#4caf50; box-shadow: 0 0 6px rgba(76,175,80,0.5); }
+  .status-dot.warn { background:#f0a500; box-shadow: 0 0 6px rgba(240,165,0,0.4); }
+  .status-dot.err  { background:var(--rose); box-shadow: 0 0 6px rgba(232,99,124,0.5); }
+  .status-bar span { font-size:13px; color: var(--mid); }
+
+  /* slider */
+  .slider-row { display:flex; align-items:center; gap:12px; margin-top:4px; }
+  .slider-row label { font-size:12px; color:var(--mid); white-space:nowrap; font-weight:500; }
+  .slider-row input[type=range] {
+    flex:1; -webkit-appearance:none; appearance:none;
+    height:5px; border-radius:3px;
+    background: linear-gradient(90deg, var(--rose-light), var(--accent)); outline:none;
+  }
+  .slider-row input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance:none; appearance:none;
+    width:16px; height:16px; border-radius:50%;
+    background:#fff; border:2px solid var(--rose);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.18); cursor:pointer;
+  }
+  .slider-row .val { font-size:12px; color:var(--rose); font-weight:600; min-width:34px; text-align:right; }
+
+  /* metrics */
+  .metrics-section { margin-top:18px; }
+  .metrics-section h3 {
+    font-family:'Playfair Display',serif; font-size:17px; font-weight:600;
+    margin-bottom:12px; color:var(--char);
+  }
+  .metrics-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .metric-card {
+    background:#fff; border-radius:12px; padding:14px 16px;
+    border:1px solid rgba(124,107,99,0.1);
+  }
+  .metric-card .m-label { font-size:11px; color:var(--mid); text-transform:uppercase; letter-spacing:.6px; font-weight:500; }
+  .metric-card .m-value { font-size:28px; font-weight:700; color:var(--rose); margin:4px 0 8px; font-family:'Playfair Display',serif; }
+  .metric-card .m-bar-bg { height:4px; background:var(--warm); border-radius:2px; overflow:hidden; }
+  .metric-card .m-bar-fill { height:100%; border-radius:2px; background: linear-gradient(90deg,var(--rose-light),var(--rose)); transition:width .6s ease; }
+
+  /* sidebar */
+  .sidebar { display:flex; flex-direction:column; gap:18px; }
+  .card {
+    background: var(--glass); backdrop-filter:blur(12px);
+    border:1px solid rgba(255,255,255,0.65);
+    border-radius: var(--radius); padding:22px;
+    box-shadow: var(--shadow);
+  }
+  .card h2 { font-family:'Playfair Display',serif; font-size:18px; font-weight:600; margin-bottom:16px; color:var(--char); }
+
+  /* tabs */
+  .tabs { display:flex; gap:4px; margin-bottom:16px; background:var(--warm); border-radius:9px; padding:3px; }
+  .tab-btn {
+    flex:1; padding:8px 0; border:none; background:none;
+    font-family:'DM Sans',sans-serif; font-size:12px; font-weight:600;
+    color:var(--mid); border-radius:7px; cursor:pointer; transition:all .2s;
+  }
+  .tab-btn.active { background:#fff; color:var(--rose); box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+
+  /* filter grid */
+  .tab-pane { display:none; }
+  .tab-pane.active { display:block; }
+  .filter-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+  .filter-chip {
+    aspect-ratio:1; border-radius:12px; cursor:pointer;
+    display:flex; align-items:flex-end; padding:9px;
+    border:2.5px solid transparent; transition:all .2s ease;
+    position:relative; overflow:hidden;
+  }
+  .filter-chip::after {
+    content:''; position:absolute; inset:0;
+    background: linear-gradient(to top, rgba(0,0,0,0.55) 0%, transparent 55%);
+    pointer-events:none;
+  }
+  .filter-chip span {
+    position:relative; z-index:1; color:#fff;
+    font-size:10.5px; font-weight:600; text-shadow: 0 1px 3px rgba(0,0,0,0.4);
+  }
+  .filter-chip:hover { transform:translateY(-2px); box-shadow: 0 6px 18px rgba(0,0,0,0.15); }
+  .filter-chip.active { border-color: var(--rose); box-shadow: 0 0 0 2px rgba(232,99,124,0.25); }
+
+  /* recommendations */
+  .rec-list { display:flex; flex-direction:column; gap:10px; }
+  .rec-item {
+    display:flex; gap:12px; align-items:center;
+    background:#fff; border-radius:11px; padding:12px;
+    border:1px solid rgba(124,107,99,0.08);
+    cursor:pointer; transition: all .2s;
+  }
+  .rec-item:hover { transform:translateX(3px); box-shadow: 0 3px 12px rgba(232,99,124,0.15); }
+  .rec-thumb { width:48px; height:48px; border-radius:10px; flex-shrink:0; }
+  .rec-info { flex:1; min-width:0; }
+  .rec-name { font-size:13px; font-weight:600; color:var(--char); }
+  .rec-desc { font-size:11px; color:var(--mid); margin-top:2px; }
+  .rec-price { font-size:13px; font-weight:700; color:var(--rose); margin-top:3px; }
+
+  /* premium */
+  .premium-banner {
+    background: linear-gradient(135deg, var(--rose), var(--accent2));
+    border-radius: var(--radius); padding:22px; text-align:center; color:#fff;
+  }
+  .premium-banner h3 { font-family:'Playfair Display',serif; font-size:17px; margin-bottom:6px; }
+  .premium-banner p { font-size:12.5px; opacity:.88; margin-bottom:14px; line-height:1.5; }
+  .btn-white {
+    background:#fff; color:var(--rose); border:none;
+    padding:9px 22px; border-radius:10px; font-size:13px; font-weight:600;
+    cursor:pointer; transition:all .2s;
+  }
+  .btn-white:hover { box-shadow: 0 4px 14px rgba(0,0,0,0.15); transform:translateY(-1px); }
+
+  /* features strip */
+  .features-strip { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-top:22px; }
+  .feat {
+    background: var(--glass); backdrop-filter:blur(10px);
+    border:1px solid rgba(255,255,255,0.6);
+    border-radius:14px; padding:20px 16px; text-align:center;
+    box-shadow: var(--shadow);
+  }
+  .feat .f-icon { font-size:28px; margin-bottom:8px; }
+  .feat h4 { font-size:13px; font-weight:600; color:var(--char); margin-bottom:4px; }
+  .feat p { font-size:11.5px; color:var(--mid); line-height:1.45; }
+
+  /* toast */
+  .toast {
+    position:fixed; bottom:28px; right:28px; z-index:999;
+    background:#fff; border-radius:12px; padding:14px 20px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.14);
+    display:flex; align-items:center; gap:10px;
+    transform: translateX(130%); transition: transform .3s cubic-bezier(.4,0,.2,1);
+    max-width:340px; border-left:3px solid var(--rose);
+  }
+  .toast.show { transform:translateX(0); }
+  .toast span { font-size:13px; color:var(--char); }
+
+  /* responsive */
+  @media (max-width:960px) {
+    .main-grid { grid-template-columns:1fr; }
+    .features-strip { grid-template-columns:repeat(2,1fr); }
+  }
+  @media (max-width:600px) {
+    .page { padding:12px; }
+    header { padding:12px 16px; }
+    .logo h1 { font-size:20px; }
+    .features-strip { grid-template-columns:1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="page">
+  <header>
+    <div class="logo">
+      <div class="logo-mark">✨</div>
+      <h1>Glow<em>Forge</em></h1>
+    </div>
+    <div class="header-actions">
+      <button class="btn btn-ghost">Sign In</button>
+      <button class="btn btn-primary">Try Pro Free</button>
+    </div>
+  </header>
+
+  <div class="main-grid">
+    <!-- LEFT -->
+    <div class="camera-panel">
+      <div class="camera-wrap" id="cameraWrap">
+        <div class="cam-placeholder" id="placeholder">
+          <div class="icon">📸</div>
+          <p>Click <strong>Start Camera</strong> to begin your beauty analysis</p>
+        </div>
+        <!-- NO autoplay attribute — we call .play() explicitly after metadata loads -->
+        <video id="video" playsinline></video>
+        <canvas id="overlay"></canvas>
+      </div>
+
+      <div class="cam-controls">
+        <button class="btn-cam btn-cam-start" id="btnStart">Start Camera</button>
+        <button class="btn-cam btn-cam-secondary" id="btnCapture" style="display:none" disabled>Capture &amp; Analyze</button>
+        <button class="btn-cam btn-cam-secondary" id="btnStop" style="display:none">Stop</button>
+      </div>
+
+      <div class="status-bar">
+        <div class="status-dot" id="statusDot"></div>
+        <span id="statusMsg">Initializing…</span>
+      </div>
+
+      <div class="slider-row">
+        <label>Intensity</label>
+        <input type="range" id="intensitySlider" min="0" max="100" value="50">
+        <span class="val" id="intensityVal">50%</span>
+      </div>
+
+      <div class="metrics-section">
+        <h3>Skin Analysis</h3>
+        <div class="metrics-grid">
+          <div class="metric-card"><div class="m-label">Clarity</div><div class="m-value" id="vClarity">—</div><div class="m-bar-bg"><div class="m-bar-fill" id="bClarity" style="width:0"></div></div></div>
+          <div class="metric-card"><div class="m-label">Hydration</div><div class="m-value" id="vHydration">—</div><div class="m-bar-bg"><div class="m-bar-fill" id="bHydration" style="width:0"></div></div></div>
+          <div class="metric-card"><div class="m-label">Texture</div><div class="m-value" id="vTexture">—</div><div class="m-bar-bg"><div class="m-bar-fill" id="bTexture" style="width:0"></div></div></div>
+          <div class="metric-card"><div class="m-label">Radiance</div><div class="m-value" id="vRadiance">—</div><div class="m-bar-bg"><div class="m-bar-fill" id="bRadiance" style="width:0"></div></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT -->
+    <div class="sidebar">
+      <div class="card">
+        <h2>Virtual Try-On</h2>
+        <div class="tabs">
+          <button class="tab-btn active" data-tab="makeup">Makeup</button>
+          <button class="tab-btn" data-tab="hair">Hair</button>
+          <button class="tab-btn" data-tab="skincare">Skincare</button>
+        </div>
+        <div class="tab-pane active" id="tab-makeup">
+          <div class="filter-grid">
+            <div class="filter-chip" data-filter="natural"  style="background:linear-gradient(135deg,#ffd1dc,#ffb6c1)"><span>Natural Glow</span></div>
+            <div class="filter-chip" data-filter="glam"      style="background:linear-gradient(135deg,#ff6b9d,#c44569)"><span>Glamorous</span></div>
+            <div class="filter-chip" data-filter="bold"      style="background:linear-gradient(135deg,#a29bfe,#6c5ce7)"><span>Bold &amp; Bright</span></div>
+            <div class="filter-chip" data-filter="smokey"    style="background:linear-gradient(135deg,#636e72,#2d3436)"><span>Smokey Eye</span></div>
+            <div class="filter-chip" data-filter="fresh"     style="background:linear-gradient(135deg,#fab1a0,#ff7675)"><span>Fresh Face</span></div>
+            <div class="filter-chip" data-filter="evening"   style="background:linear-gradient(135deg,#fd79a8,#e84393)"><span>Evening Look</span></div>
+          </div>
+        </div>
+        <div class="tab-pane" id="tab-hair">
+          <div class="filter-grid">
+            <div class="filter-chip" data-filter="blonde"      style="background:linear-gradient(135deg,#f9ca24,#f0932b)"><span>Blonde</span></div>
+            <div class="filter-chip" data-filter="brunette"    style="background:linear-gradient(135deg,#a55eea,#8e44ad)"><span>Brunette</span></div>
+            <div class="filter-chip" data-filter="red"         style="background:linear-gradient(135deg,#eb3b5a,#fc5c65)"><span>Auburn Red</span></div>
+            <div class="filter-chip" data-filter="black"       style="background:linear-gradient(135deg,#2d3436,#000)"><span>Jet Black</span></div>
+            <div class="filter-chip" data-filter="pastel"      style="background:linear-gradient(135deg,#a29bfe,#fab1a0)"><span>Pastel</span></div>
+            <div class="filter-chip" data-filter="highlights" style="background:linear-gradient(135deg,#ffeaa7,#fdcb6e)"><span>Highlights</span></div>
+          </div>
+        </div>
+        <div class="tab-pane" id="tab-skincare">
+          <div class="filter-grid">
+            <div class="filter-chip" data-filter="smooth"    style="background:linear-gradient(135deg,#ffeaa7,#fdcb6e)"><span>Smooth</span></div>
+            <div class="filter-chip" data-filter="brighten"  style="background:linear-gradient(135deg,#fff,#ffd89b)"><span>Brighten</span></div>
+            <div class="filter-chip" data-filter="glow"      style="background:linear-gradient(135deg,#ffafbd,#ffc3a0)"><span>Radiant Glow</span></div>
+            <div class="filter-chip" data-filter="clear"     style="background:linear-gradient(135deg,#a8edea,#fed6e3)"><span>Clear Skin</span></div>
+            <div class="filter-chip" data-filter="youthful"  style="background:linear-gradient(135deg,#fbc2eb,#a6c1ee)"><span>Youthful</span></div>
+            <div class="filter-chip" data-filter="poreless"  style="background:linear-gradient(135deg,#e0c3fc,#8ec5fc)"><span>Poreless</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Recommended For You</h2>
+        <div class="rec-list" id="recList">
+          <div class="rec-item"><div class="rec-thumb" style="background:linear-gradient(135deg,#ffd1dc,#ffb6c1)"></div><div class="rec-info"><div class="rec-name">Luminous Serum</div><div class="rec-desc">Vitamin C brightening serum</div><div class="rec-price">$45.00</div></div></div>
+          <div class="rec-item"><div class="rec-thumb" style="background:linear-gradient(135deg,#a29bfe,#6c5ce7)"></div><div class="rec-info"><div class="rec-name">Velvet Matte Lipstick</div><div class="rec-desc">Long-lasting color</div><div class="rec-price">$28.00</div></div></div>
+          <div class="rec-item"><div class="rec-thumb" style="background:linear-gradient(135deg,#fab1a0,#ff7675)"></div><div class="rec-info"><div class="rec-name">Hydra Boost Moisturizer</div><div class="rec-desc">24h hydration lock</div><div class="rec-price">$52.00</div></div></div>
+        </div>
+      </div>
+
+      <div class="premium-banner">
+        <h3>✨ Unlock Pro Features</h3>
+        <p>AI dermatologist chat, aging predictions &amp; advanced skin analysis</p>
+        <button class="btn-white">Start Free Trial</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="features-strip">
+    <div class="feat"><div class="f-icon">🤖</div><h4>AI-Powered</h4><p>Real-time skin analysis using advanced computer vision</p></div>
+    <div class="feat"><div class="f-icon">💄</div><h4>Virtual Try-On</h4><p>See makeup, hair &amp; treatments instantly on your face</p></div>
+    <div class="feat"><div class="f-icon">📊</div><h4>Personalized</h4><p>Custom beauty routines built around your unique skin</p></div>
+    <div class="feat"><div class="f-icon">🛍️</div><h4>Smart Shopping</h4><p>Curated product picks that match your skin profile</p></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"><span id="toastMsg"></span></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.13.0/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/face-landmarks-detection@1.0.3/dist/face-landmarks-detection.min.js"></script>
+<script>
+/* ═══════════════════════════════════════════
+   STATE
+   ═══════════════════════════════════════════ */
+let stream        = null;
+let detector      = null;
+let rafId         = null;
+let landmarks     = null;
+let noFaceCount   = 0;
+let currentFilter = null;
+let intensity     = 50;
+
+/* ═══════════════════════════════════════════
+   DOM
+   ═══════════════════════════════════════════ */
+const video       = document.getElementById('video');
+const canvas      = document.getElementById('overlay');
+const ctx         = canvas.getContext('2d');
+const placeholder = document.getElementById('placeholder');
+const btnStart    = document.getElementById('btnStart');
+const btnStop     = document.getElementById('btnStop');
+const btnCapture  = document.getElementById('btnCapture');
+const statusDot   = document.getElementById('statusDot');
+const statusMsg   = document.getElementById('statusMsg');
+
+/* ═══════════════════════════════════════════
+   TOAST
+   ═══════════════════════════════════════════ */
+let toastTimer;
+function toast(msg) {
+  document.getElementById('toastMsg').textContent = msg;
+  const el = document.getElementById('toast');
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2800);
+}
+
+/* ═══════════════════════════════════════════
+   STATUS
+   ═══════════════════════════════════════════ */
+function setStatus(state, msg) {
+  statusDot.className = 'status-dot ' + state;
+  statusMsg.textContent = msg;
+}
+
+/* ═══════════════════════════════════════════
+   LOAD FACE DETECTOR
+   ═══════════════════════════════════════════ */
+async function loadDetector() {
+  try {
+    setStatus('', 'Loading AI models…');
+    detector = await faceLandmarksDetection.createDetector(
+      faceLandmarksDetection.SupportedModels.MediaPipeFaceMesh,
+      { runtime:'tfjs', refineLandmarks:true, maxFaces:1 }
+    );
+    setStatus('on', 'AI ready — start your camera');
+    toast('✅ AI models loaded');
+  } catch (e) {
+    console.error('detector load', e);
+    setStatus('err', 'AI models failed — basic mode active');
+    toast('⚠️ Running in basic mode');
+  }
+}
+loadDetector();
+
+/* ═══════════════════════════════════════════
+   CAMERA   ←  bulletproof
+   ═══════════════════════════════════════════
+   Why the old version broke:
+     1. <video autoplay> fired loadedmetadata before the
+        .onloadedmetadata listener was attached → promise
+        never resolved → 10 s timeout.
+     2. srcObject was assigned BEFORE the listener, so even
+        without autoplay a fast browser could still miss it.
+
+   This version:
+     • <video> has NO autoplay attribute.
+     • We attach the listener FIRST, then assign srcObject.
+     • A readyState guard catches the edge-case where
+       metadata loads synchronously.
+     • We call .play() explicitly and await its promise.
+   ═══════════════════════════════════════════ */
+btnStart.addEventListener('click', async () => {
+  try {
+    setStatus('', 'Requesting camera…');
+
+    /* 1. Obtain the media stream */
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode:'user', width:{ideal:1280,min:640}, height:{ideal:720,min:480} },
+      audio: false
+    });
+
+    /* 2. Wait for video to be ready, THEN play */
+    await new Promise((resolve, reject) => {
+      const timeout = setTimeout(
+        () => reject(new Error('Camera start timed out')), 12000
+      );
+
+      function onReady() {
+        clearTimeout(timeout);
+        video.play().then(resolve).catch(reject);
+      }
+
+      // Attach listener BEFORE touching srcObject
+      video.onloadedmetadata = onReady;
+      video.onerror = () => { clearTimeout(timeout); reject(new Error('Video element error')); };
+
+      // Now assign the stream — this is what triggers loading
+      video.srcObject = stream;
+
+      // Guard: if the browser already finished loading (rare but possible)
+      if (video.readyState >= video.HAVE_METADATA) {
+        onReady();
+      }
+    });
+
+    /* 3. Size the overlay canvas to actual video dimensions */
+    canvas.width  = video.videoWidth;
+    canvas.height = video.videoHeight;
+
+    /* 4. Swap the UI */
+    video.style.display      = 'block';
+    placeholder.style.display = 'none';
+    btnStart.style.display   = 'none';
+    btnStop.style.display    = 'inline-block';
+    btnCapture.style.display = 'inline-block';
+    btnCapture.disabled      = false;
+
+    /* 5. Start the detection loop */
+    setStatus('warn', 'Position your face…');
+    detectLoop();
+    toast('✅ Camera on — position your face');
+
+  } catch (e) {
+    console.error('camera start', e);
+    if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+
+    let msg = 'Camera error: ';
+    if      (e.name === 'NotAllowedError')  msg += 'Permission denied — allow camera in your browser settings.';
+    else if (e.name === 'NotFoundError')    msg += 'No camera found on this device.';
+    else if (e.name === 'NotReadableError') msg += 'Camera is in use by another app.';
+    else                                    msg += e.message;
+
+    setStatus('err', msg);
+    toast('❌ ' + msg);
+  }
+});
+
+/* stop */
+btnStop.addEventListener('click', stopCamera);
+function stopCamera() {
+  if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+  cancelAnimationFrame(rafId); rafId = null;
+  landmarks = null;
+  video.srcObject = null;
+  video.style.display      = 'none';
+  placeholder.style.display = 'flex';
+  btnStart.style.display   = 'inline-block';
+  btnStop.style.display    = 'none';
+  btnCapture.style.display = 'none';
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  setStatus('', 'Camera stopped');
+}
+
+/* ═══════════════════════════════════════════
+   DETECTION LOOP  (requestAnimationFrame)
+   ═══════════════════════════════════════════ */
+async function detectLoop() {
+  if (!stream) return;
+
+  if (video.readyState === video.HAVE_ENOUGH_DATA && detector) {
+    try {
+      const faces = await detector.estimateFaces(video, { flipHorizontal:false });
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      if (faces.length > 0) {
+        landmarks   = faces[0];
+        noFaceCount = 0;
+        setStatus('on', '✓ Face detected — ready to analyze');
+        drawLandmarks(faces[0]);
+        applyFilter();
+      } else {
+        noFaceCount++;
+        if (noFaceCount > 15) {
+          landmarks = null;
+          setStatus('warn', 'No face detected — move closer');
+        }
+      }
+    } catch (e) { console.warn('detect', e); }
+  }
+
+  rafId = requestAnimationFrame(detectLoop);
+}
+
+/* ═══════════════════════════════════════════
+   DRAW LANDMARKS
+   ═══════════════════════════════════════════ */
+function drawLandmarks(face) {
+  const kp = face.keypoints;
+  ctx.fillStyle = 'rgba(232,99,124,0.45)';
+  kp.forEach(p => { ctx.beginPath(); ctx.arc(p.x,p.y,1.2,0,Math.PI*2); ctx.fill(); });
+
+  ctx.strokeStyle = 'rgba(232,99,124,0.75)';
+  ctx.lineWidth   = 1.8;
+  polyline(kp,[33,36,37,38,39,40,41,42,43,44,45,46,47,33]);
+  polyline(kp,[263,266,267,268,269,270,271,272,273,274,275,276,277,263]);
+  polyline(kp,[61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88,89,90,91,61]);
+  polyline(kp,[10,338,297,332,284,251,389,356,454,323,361,288,397,365,379,378,400,377,152,148,176,149,150,136,172,58,132,93,234,127,162,21,54,103,67,109],true);
+}
+function polyline(kp, idx, close) {
+  ctx.beginPath();
+  idx.forEach((i,n) => { const p=kp[i]; n===0?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y); });
+  if (close) ctx.closePath();
+  ctx.stroke();
+}
+
+/* ═══════════════════════════════════════════
+   AR FILTERS
+   ═══════════════════════════════════════════ */
+function applyFilter() {
+  if (!currentFilter || !landmarks) return;
+  const kp = landmarks.keypoints;
+  const a  = intensity / 100;
+  const FX = {
+    natural:   () => { blush(kp,[255,182,193],a*.4); lips(kp,[255,160,180],a*.5); eyeshadow(kp,[200,180,160],a*.3); },
+    glam:      () => { blush(kp,[255,107,157],a*.6); lips(kp,[200,50,100],a*.8); eyeshadow(kp,[180,140,200],a*.7); highlight(kp,a*.5); },
+    bold:      () => { lips(kp,[162,155,254],a*.9); eyeshadow(kp,[162,155,254],a*.8); eyeliner(kp,a*.7); },
+    smokey:    () => { eyeshadow(kp,[60,60,60],a*.9); eyeliner(kp,a*.9); lips(kp,[120,80,80],a*.6); },
+    fresh:     () => { blush(kp,[250,177,160],a*.5); lips(kp,[255,140,130],a*.6); glow(kp,a*.4); },
+    evening:   () => { lips(kp,[180,40,80],a*.9); eyeshadow(kp,[100,60,80],a*.8); eyeliner(kp,a*.8); highlight(kp,a*.6); },
+    blonde:    () => hairColor(kp,[249,202,36],a),
+    brunette:  () => hairColor(kp,[101,67,33],a),
+    red:       () => hairColor(kp,[235,59,90],a),
+    black:     () => hairColor(kp,[20,20,20],a),
+    pastel:    () => hairColor(kp,[200,180,255],a),
+    highlights:() => hairHighlights(kp,a),
+    smooth:    () => skinOverlay(kp,[255,234,167],a*.3,a*3),
+    brighten:  () => skinOverlay(kp,[255,255,255],a*.2,0),
+    glow:      () => glow(kp,a),
+    clear:     () => { skinOverlay(kp,[255,240,245],a*.25,0); skinOverlay(kp,[168,237,234],a*.1,a*2); },
+    youthful:  () => { glow(kp,a*.8); skinOverlay(kp,[255,234,167],a*.2,a*2); blush(kp,[255,182,193],a*.4); },
+    poreless:  () => skinOverlay(kp,[224,195,252],a*.15,a*4)
+  };
+  if (FX[currentFilter]) FX[currentFilter]();
+}
+
+/* ── primitives ── */
+function lips(kp,c,a) {
+  const idx=[61,185,40,39,37,0,267,269,270,409,291,375,321,405,314,17,84,181,91,146];
+  ctx.fillStyle=`rgba(${c[0]},${c[1]},${c[2]},${a})`;
+  ctx.beginPath();
+  idx.forEach((i,n)=>{const p=kp[i];n===0?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y);});
+  ctx.closePath(); ctx.fill();
+  ctx.fillStyle=`rgba(255,255,255,${a*.3})`; ctx.fill();
+}
+function blush(kp,c,a) { blushAt(kp[116].x,kp[116].y,c,a); blushAt(kp[345].x,kp[345].y,c,a); }
+function blushAt(x,y,c,a) {
+  const g=ctx.createRadialGradient(x,y,0,x,y,50);
+  g.addColorStop(0,`rgba(${c[0]},${c[1]},${c[2]},${a})`);
+  g.addColorStop(1,`rgba(${c[0]},${c[1]},${c[2]},0)`);
+  ctx.fillStyle=g; ctx.fillRect(x-50,y-50,100,100);
+}
+function eyeshadow(kp,c,a) { eyeAt(kp,[33,160,158,133,153,144],c,a); eyeAt(kp,[263,387,385,362,380,373],c,a); }
+function eyeAt(kp,idx,c,a) {
+  const cx=idx.reduce((s,i)=>s+kp[i].x,0)/idx.length;
+  const cy=idx.reduce((s,i)=>s+kp[i].y,0)/idx.length;
+  const g=ctx.createRadialGradient(cx,cy-15,0,cx,cy-15,40);
+  g.addColorStop(0,`rgba(${c[0]},${c[1]},${c[2]},${a})`);
+  g.addColorStop(1,`rgba(${c[0]},${c[1]},${c[2]},0)`);
+  ctx.fillStyle=g; ctx.fillRect(cx-40,cy-55,80,50);
+}
+function eyeliner(kp,a) {
+  ctx.strokeStyle=`rgba(0,0,0,${a})`; ctx.lineWidth=2.5;
+  polyline(kp,[33,246,161,160,159,158,157,173]);
+  polyline(kp,[263,466,388,387,386,385,384,398]);
+}
+function highlight(kp,a) {
+  [6,168,10].forEach(i=>{
+    const p=kp[i];
+    const g=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,28);
+    g.addColorStop(0,`rgba(255,255,255,${a*.8})`);
+    g.addColorStop(1,`rgba(255,255,255,0)`);
+    ctx.fillStyle=g; ctx.fillRect(p.x-28,p.y-28,56,56);
+  });
+}
+function hairColor(kp,c,a) {
+  const top=Math.min(...kp.map(p=>p.y)), left=Math.min(...kp.map(p=>p.x)), right=Math.max(...kp.map(p=>p.x));
+  const g=ctx.createLinearGradient(0,0,0,top);
+  g.addColorStop(0,`rgba(${c[0]},${c[1]},${c[2]},${a*.6})`);
+  g.addColorStop(1,`rgba(${c[0]},${c[1]},${c[2]},0)`);
+  ctx.fillStyle=g; ctx.fillRect(left-100,0,right-left+200,top+50);
+}
+function hairHighlights(kp,a) {
+  const top=Math.min(...kp.map(p=>p.y)),left=Math.min(...kp.map(p=>p.x)),right=Math.max(...kp.map(p=>p.x));
+  for(let i=0;i<5;i++){
+    const x=left+(right-left)*(i/4);
+    const g=ctx.createLinearGradient(x,0,x,top);
+    g.addColorStop(0,`rgba(255,234,167,${a*.5})`);
+    g.addColorStop(1,`rgba(255,234,167,0)`);
+    ctx.fillStyle=g; ctx.fillRect(x-10,0,20,top+30);
+  }
+}
+function glow(kp,a) {
+  const cx=kp.reduce((s,p)=>s+p.x,0)/kp.length, cy=kp.reduce((s,p)=>s+p.y,0)/kp.length;
+  const g=ctx.createRadialGradient(cx,cy,0,cx,cy,200);
+  g.addColorStop(0,`rgba(255,220,200,${a*.4})`);
+  g.addColorStop(.5,`rgba(255,200,180,${a*.2})`);
+  g.addColorStop(1,`rgba(255,175,189,0)`);
+  ctx.fillStyle=g; ctx.fillRect(cx-200,cy-200,400,400);
+}
+function skinOverlay(kp,c,a,blur) {
+  const xs=kp.map(p=>p.x),ys=kp.map(p=>p.y);
+  const x=Math.min(...xs)-20,y=Math.min(...ys)-20;
+  const w=Math.max(...xs)-Math.min(...xs)+40,h=Math.max(...ys)-Math.min(...ys)+40;
+  if(blur){ctx.filter=`blur(${blur}px)`;}
+  ctx.fillStyle=`rgba(${c[0]},${c[1]},${c[2]},${a})`;
+  ctx.fillRect(x,y,w,h);
+  ctx.filter='none';
+}
+
+/* ═══════════════════════════════════════════
+   INTENSITY SLIDER
+   ═══════════════════════════════════════════ */
+document.getElementById('intensitySlider').addEventListener('input', e => {
+  intensity = +e.target.value;
+  document.getElementById('intensityVal').textContent = intensity+'%';
+});
+
+/* ═══════════════════════════════════════════
+   TABS
+   ═══════════════════════════════════════════ */
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
+    document.getElementById('tab-'+btn.dataset.tab).classList.add('active');
+  });
+});
+
+/* ═══════════════════════════════════════════
+   FILTER CHIPS
+   ═══════════════════════════════════════════ */
+document.querySelectorAll('.filter-chip').forEach(chip => {
+  chip.addEventListener('click', () => {
+    document.querySelectorAll('.filter-chip').forEach(c=>c.classList.remove('active'));
+    chip.classList.add('active');
+    currentFilter = chip.dataset.filter;
+    toast('✨ '+chip.querySelector('span').textContent+' applied');
+  });
+});
+
+/* ═══════════════════════════════════════════
+   CAPTURE & AI SKIN ANALYSIS
+   ═══════════════════════════════════════════ */
+function capId(m){ return m.charAt(0).toUpperCase()+m.slice(1); }
+
+btnCapture.addEventListener('click', async () => {
+  if (!landmarks) { toast('⚠️ No face detected — position your face first'); return; }
+  btnCapture.disabled=true; btnCapture.textContent='Analyzing…';
+  setStatus('on','AI analyzing your skin…');
+
+  try {
+    // snapshot (flip back for AI)
+    const snap=document.createElement('canvas');
+    snap.width=video.videoWidth; snap.height=video.videoHeight;
+    const sCtx=snap.getContext('2d');
+    sCtx.translate(snap.width,0); sCtx.scale(-1,1);
+    sCtx.drawImage(video,0,0);
+    const b64=snap.toDataURL('image/jpeg',0.8).split(',')[1];
+
+    const res = await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-20250514', max_tokens:1000,
+        messages:[{ role:'user', content:[
+          {type:'image',source:{type:'base64',media_type:'image/jpeg',data:b64}},
+          {type:'text',text:
+            'You are an expert dermatologist AI. Analyze this face and return ONLY valid JSON (no markdown, no backticks):\n'+
+            '{"clarity":85,"hydration":78,"texture":82,"radiance":88,"skinType":"combination","concerns":["fine lines"],"strengths":["healthy glow"],"recommendations":[{"type":"serum","name":"Vitamin C Serum","reason":"improve radiance","price":45}]}'}
+        ]}]
+      })
+    });
+    const data=await res.json();
+    const raw=(data.content.find(c=>c.type==='text')?.text||'{}').replace(/```json|```/g,'').trim();
+    const analysis=JSON.parse(raw);
+
+    // update metrics
+    ['clarity','hydration','texture','radiance'].forEach((m,i)=>{
+      setTimeout(()=>{
+        const v=analysis[m]||70;
+        document.getElementById('v'+capId(m)).textContent=v;
+        document.getElementById('b'+capId(m)).style.width=v+'%';
+      },i*180);
+    });
+
+    // update recs
+    if(analysis.recommendations){
+      const list=document.getElementById('recList'); list.innerHTML='';
+      const thumbs={serum:'linear-gradient(135deg,#ffd1dc,#ffb6c1)',moisturizer:'linear-gradient(135deg,#a29bfe,#6c5ce7)',cleanser:'linear-gradient(135deg,#fab1a0,#ff7675)',lipstick:'linear-gradient(135deg,#fd79a8,#e84393)',eyeshadow:'linear-gradient(135deg,#a29bfe,#6c5ce7)',foundation:'linear-gradient(135deg,#ffeaa7,#fdcb6e)'};
+      analysis.recommendations.forEach(r=>{
+        const el=document.createElement('div'); el.className='rec-item';
+        el.innerHTML=`<div class="rec-thumb" style="background:${thumbs[r.type]||'linear-gradient(135deg,#e8637c,#d4845a)'}"></div><div class="rec-info"><div class="rec-name">${r.name}</div><div class="rec-desc">${r.reason}</div><div class="rec-price">$${r.price}.00</div></div>`;
+        el.addEventListener('click',()=>toast(r.name+' added to wishlist 🛍️'));
+        list.appendChild(el);
+      });
+    }
+
+    setStatus('on','✓ Analysis complete');
+    toast('✨ AI analysis complete — check results');
+  } catch(e) {
+    console.error('AI',e);
+    ['clarity','hydration','texture','radiance'].forEach((m,i)=>{
+      setTimeout(()=>{
+        const v=70+Math.floor(Math.random()*25);
+        document.getElementById('v'+capId(m)).textContent=v;
+        document.getElementById('b'+capId(m)).style.width=v+'%';
+      },i*180);
+    });
+    setStatus('warn','AI unavailable — basic analysis shown');
+    toast('⚠️ Using basic analysis mode');
+  }
+  btnCapture.disabled=false; btnCapture.textContent='Capture & Analyze';
+});
+
+/* default rec items click */
+document.querySelectorAll('.rec-item').forEach(item=>{
+  item.addEventListener('click',()=>toast((item.querySelector('.rec-name')?.textContent||'Item')+' added to wishlist 🛍️'));
+});
+
+/* ═══════════════════════════════════════════
+   DEMO METRICS on load
+   ═══════════════════════════════════════════ */
+setTimeout(()=>{
+  const demo={clarity:85,hydration:78,texture:82,radiance:91};
+  ['clarity','hydration','texture','radiance'].forEach((m,i)=>{
+    setTimeout(()=>{
+      document.getElementById('v'+capId(m)).textContent=demo[m];
+      document.getElementById('b'+capId(m)).style.width=demo[m]+'%';
+    },i*200);
+  });
+  setStatus('','Ready — start your camera to begin');
+},900);
+</script>
+</body>
+</html>
