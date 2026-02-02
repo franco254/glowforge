@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GlowForge — AI Beauty Makeover</title>
+<style>
+  :root {
+    --rose:#e8637c; --rose-light:#f2a5b3; --cream:#faf7f4; --warm:#f0e6df;
+    --char:#2c2420; --mid:#7a6b63; --accent:#c9a87c; --accent2:#d4845a;
+    --glass:rgba(255,255,255,0.55); --shadow:0 8px 40px rgba(44,36,32,0.12); --radius:18px;
+    --serif: Georgia, 'Times New Roman', Times, serif;
+    --sans:  'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:var(--sans);background:var(--cream);color:var(--char);min-height:100vh;overflow-x:hidden}
+  body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
+    background:radial-gradient(ellipse 80% 60% at 15% 20%,rgba(232,99,124,.08) 0%,transparent 70%),
+               radial-gradient(ellipse 60% 50% at 85% 75%,rgba(201,168,124,.1) 0%,transparent 70%),
+               radial-gradient(ellipse 50% 40% at 50% 50%,rgba(212,132,90,.06) 0%,transparent 70%)}
+  .page{position:relative;z-index:1;max-width:1320px;margin:0 auto;padding:20px}
+
+  header{display:flex;align-items:center;justify-content:space-between;
+    background:var(--glass);backdrop-filter:blur(18px);border:1px solid rgba(255,255,255,.7);
+    border-radius:var(--radius);padding:16px 28px;box-shadow:var(--shadow);margin-bottom:24px}
+  .logo{display:flex;align-items:center;gap:12px}
+  .logo-mark{width:38px;height:38px;border-radius:12px;
+    background:linear-gradient(135deg,var(--rose),var(--accent2));
+    display:flex;align-items:center;justify-content:center;font-size:20px;box-shadow:0 4px 14px rgba(232,99,124,.35)}
+  .logo h1{font-family:var(--serif);font-size:24px;font-weight:700;letter-spacing:-.5px;color:var(--char)}
+  .logo h1 em{font-style:italic;color:var(--rose)}
+  .header-actions{display:flex;gap:10px}
+  .btn{padding:9px 20px;border:none;border-radius:10px;font-family:var(--sans);font-size:13px;font-weight:500;cursor:pointer;transition:all .25s}
+  .btn-ghost{background:transparent;color:var(--mid);border:1.5px solid rgba(124,107,99,.3)}
+  .btn-ghost:hover{background:var(--warm);color:var(--char)}
+  .btn-primary{background:linear-gradient(135deg,var(--rose),var(--accent2));color:#fff;box-shadow:0 4px 16px rgba(232,99,124,.35)}
+  .btn-primary:hover{transform:translateY(-1px);box-shadow:0 6px 22px rgba(232,99,124,.45)}
+
+  .main-grid{display:grid;grid-template-columns:1fr 370px;gap:22px}
+
+  .camera-panel{background:var(--glass);backdrop-filter:blur(14px);border:1px solid rgba(255,255,255,.65);
+    border-radius:var(--radius);padding:22px;box-shadow:var(--shadow)}
+  .camera-wrap{position:relative;width:100%;aspect-ratio:3/4;background:#1a1210;border-radius:14px;overflow:hidden;margin-bottom:16px}
+  .camera-wrap video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1);display:none}
+  .camera-wrap canvas#overlay{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;transform:scaleX(-1)}
+  .cam-placeholder{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    color:rgba(255,255,255,.45);background:linear-gradient(180deg,#2c2420,#1a1210)}
+  .cam-placeholder .icon{font-size:52px;margin-bottom:14px;opacity:.6}
+  .cam-placeholder p{font-size:14px;max-width:240px;text-align:center;line-height:1.5}
+  .cam-controls{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+  .btn-cam{padding:10px 22px;border:none;border-radius:10px;font-family:var(--sans);font-size:13px;font-weight:600;cursor:pointer;transition:all .22s}
+  .btn-cam-start{background:linear-gradient(135deg,var(--rose),var(--accent2));color:#fff;box-shadow:0 4px 16px rgba(232,99,124,.4)}
+  .btn-cam-start:hover{transform:translateY(-1px);box-shadow:0 6px 22px rgba(232,99,124,.5)}
+  .btn-cam-secondary{background:#fff;color:var(--char);border:1.5px solid rgba(124,107,99,.25)}
+  .btn-cam-secondary:hover{background:var(--warm)}
+  .btn-cam-secondary:disabled{opacity:.4;cursor:not-allowed}
+
+  .status-bar{display:flex;align-items:center;gap:10px;background:var(--warm);border-radius:10px;padding:10px 14px;margin:14px 0}
+  .status-dot{width:10px;height:10px;border-radius:50%;background:#bbb;transition:background .3s}
+  .status-dot.on{background:#4caf50;box-shadow:0 0 6px rgba(76,175,80,.5)}
+  .status-dot.warn{background:#f0a500;box-shadow:0 0 6px rgba(240,165,0,.4)}
+  .status-dot.err{background:var(--rose);box-shadow:0 0 6px rgba(232,99,124,.5)}
+  .status-bar span{font-size:13px;color:var(--mid)}
+
+  .slider-row{display:flex;align-items:center;gap:12px;margin-top:4px}
+  .slider-row label{font-size:12px;color:var(--mid);white-space:nowrap;font-weight:500}
+  .slider-row input[type=range]{flex:1;-webkit-appearance:none;appearance:none;height:5px;border-radius:3px;
+    background:linear-gradient(90deg,var(--rose-light),var(--accent));outline:none}
+  .slider-row input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;
+    width:16px;height:16px;border-radius:50%;background:#fff;border:2px solid var(--rose);box-shadow:0 2px 6px rgba(0,0,0,.18);cursor:pointer}
+  .slider-row .val{font-size:12px;color:var(--rose);font-weight:600;min-width:34px;text-align:right}
+
+  .metrics-section{margin-top:18px}
+  .metrics-section h3{font-family:var(--serif);font-size:17px;font-weight:600;margin-bottom:12px;color:var(--char)}
+  .metrics-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .metric-card{background:#fff;border-radius:12px;padding:14px 16px;border:1px solid rgba(124,107,99,.1)}
+  .metric-card .m-label{font-size:11px;color:var(--mid);text-transform:uppercase;letter-spacing:.6px;font-weight:500}
+  .metric-card .m-value{font-size:28px;font-weight:700;color:var(--rose);margin:4px 0 8px;font-family:var(--serif)}
+  .metric-card .m-bar-bg{height:4px;background:var(--warm);border-radius:2px;overflow:hidden}
+  .metric-card .m-bar-fill{height:100%;border-radius:2px;background:linear-gradient(90deg,var(--rose-light),var(--rose));transition:width .6s ease}
+
+  .sidebar{display:flex;flex-direction:column;gap:18px}
+  .card{background:var(--glass);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.65);
+    border-radius:var(--radius);padding:22px;box-shadow:var(--shadow)}
+  .card h2{font-family:var(--serif);font-size:18px;font-weight:600;margin-bottom:16px;color:var(--char)}
+
+  .tabs{display:flex;gap:4px;margin-bottom:16px;background:var(--warm);border-radius:9px;padding:3px}
+  .tab-btn{flex:1;padding:8px 0;border:none;background:none;font-family:var(--sans);font-size:12px;font-weight:600;
+    color:var(--mid);border-radius:7px;cursor:pointer;transition:all .2s}
+  .tab-btn.active{background:#fff;color:var(--rose);box-shadow:0 2px 8px rgba(0,0,0,.08)}
+  .tab-pane{display:none}
+  .tab-pane.active{display:block}
+  .filter-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+  .filter-chip{aspect-ratio:1;border-radius:12px;cursor:pointer;display:flex;align-items:flex-end;padding:9px;
+    border:2.5px solid transparent;transition:all .2s;position:relative;overflow:hidden}
+  .filter-chip::after{content:'';position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.55) 0%,transparent 55%);pointer-events:none}
+  .filter-chip span{position:relative;z-index:1;color:#fff;font-size:10.5px;font-weight:600;text-shadow:0 1px 3px rgba(0,0,0,.4)}
+  .filter-chip:hover{transform:translateY(-2px);box-shadow:0 6px 18px rgba(0,0,0,.15)}
+  .filter-chip.active{border-color:var(--rose);box-shadow:0 0 0 2px rgba(232,99,124,.25)}
+
+  .rec-list{display:flex;flex-direction:column;gap:10px;min-height:200px}
+  .rec-list.empty{align-items:center;justify-content:center}
+  .rec-list .empty-msg{color:var(--mid);font-size:13px;text-align:center;opacity:.7}
+  .rec-item{display:flex;gap:12px;align-items:center;background:#fff;border-radius:11px;padding:12px;
+    border:1px solid rgba(124,107,99,.08);cursor:pointer;transition:all .2s}
+  .rec-item:hover{transform:translateX(3px);box-shadow:0 3px 12px rgba(232,99,124,.15)}
+  .rec-thumb{width:48px;height:48px;border-radius:10px;flex-shrink:0}
+  .rec-info{flex:1;min-width:0}
+  .rec-name{font-size:13px;font-weight:600;color:var(--char)}
+  .rec-desc{font-size:11px;color:var(--mid);margin-top:2px}
+  .rec-price{font-size:13px;font-weight:700;color:var(--rose);margin-top:3px}
+
+  .premium-banner{background:linear-gradient(135deg,var(--rose),var(--accent2));border-radius:var(--radius);padding:22px;text-align:center;color:#fff}
+  .premium-banner h3{font-family:var(--serif);font-size:17px;margin-bottom:6px}
+  .premium-banner p{font-size:12.5px;opacity:.88;margin-bottom:14px;line-height:1.5}
+  .btn-white{background:#fff;color:var(--rose);border:none;padding:9px 22px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s}
+  .btn-white:hover{box-shadow:0 4px 14px rgba(0,0,0,.15);transform:translateY(-1px)}
+
+  .features-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:22px}
+  .feat{background:var(--glass);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.6);
+    border-radius:14px;padding:20px 16px;text-align:center;box-shadow:var(--shadow)}
+  .feat .f-icon{font-size:28px;margin-bottom:8px}
+  .feat h4{font-size:13px;font-weight:600;color:var(--char);margin-bottom:4px}
+  .feat p{font-size:11.5px;color:var(--mid);line-height:1.45}
+
+  .toast{position:fixed;bottom:28px;right:28px;z-index:999;background:#fff;border-radius:12px;padding:14px 20px;
+    box-shadow:0 8px 32px rgba(0,0,0,.14);display:flex;align-items:center;gap:10px;
+    transform:translateX(130%);transition:transform .3s cubic-bezier(.4,0,.2,1);max-width:340px;border-left:3px solid var(--rose)}
+  .toast.show{transform:translateX(0)}
+  .toast span{font-size:13px;color:var(--char)}
+
+  @media(max-width:960px){.main-grid{grid-template-columns:1fr}.features-strip{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:600px){.page{padding:12px}header{padding:12px 16px}.logo h1{font-size:20px}.features-strip{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <div class="logo"><div class="logo-mark">✨</div><h1>Glow<em>Forge</em></h1></div>
+    <div class="header-actions"><button class="btn btn-ghost">Sign In</button><button class="btn btn-primary">Try Pro Free</button></div>
+  </header>
+  <div class="main-grid">
+    <div class="camera-panel">
+      <div class="camera-wrap">
+        <div class="cam-placeholder" id="placeholder"><div class="icon">📸</div><p>Click <strong>Start Camera</strong> to begin your beauty analysis</p></div>
+        <video id="video" playsinline></video>
+        <canvas id="overlay"></canvas>
+      </div>
+      <div class="cam-controls">
+        <button class="btn-cam btn-cam-start" id="btnStart">Start Camera</button>
+        <button class="btn-cam btn-cam-secondary" id="btnCapture" style="display:none" disabled>Capture &amp; Analyze</button>
+        <button class="btn-cam btn-cam-secondary" id="btnStop" style="display:none">Stop</button>
+      </div>
+      <div class="status-bar"><div class="status-dot" id="statusDot"></div><span id="statusMsg">Ready</span></div>
+      <div class="slider-row">
+        <label>Intensity</label>
+        <input type="range" id="intensitySlider" min="0" max="100" value="50">
+        <span class="val" id="intensityVal">50%</span>
+      </div>
+      <div class="metrics-section">
+        <h3>Skin Analysis</h3>
+        <div class="metrics-grid">
+          <div class="metric-card"><div class="m-label">Clarity</div><div class="m-value" id="vClarity">—</div><div class="m-bar-bg"><div class="m-bar-fill" id="bClarity" style="width:0"></div></div></div>
+          <div class="metric-card"><div class="m-label">Hydration</div><div class="m-value" id="vHydration">—</div><div class="m-bar-bg"><div class="m-bar-fill" id="bHydration" style="width:0"></div></div></div>
+          <div class="metric-card"><div class="m-label">Texture</div><div class="m-value" id="vTexture">—</div><div class="m-bar-bg"><div class="m-bar-fill" id="bTexture" style="width:0"></div></div></div>
+          <div class="metric-card"><div class="m-label">Radiance</div><div class="m-value" id="vRadiance">—</div><div class="m-bar-bg"><div class="m-bar-fill" id="bRadiance" style="width:0"></div></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="sidebar">
+      <div class="card">
+        <h2>Virtual Try-On</h2>
+        <div class="tabs">
+          <button class="tab-btn active" data-tab="makeup">Makeup</button>
+          <button class="tab-btn" data-tab="hair">Hair</button>
+          <button class="tab-btn" data-tab="skincare">Skincare</button>
+        </div>
+        <div class="tab-pane active" id="tab-makeup"><div class="filter-grid">
+          <div class="filter-chip" data-filter="natural"  style="background:linear-gradient(135deg,#ffd1dc,#ffb6c1)"><span>Natural Glow</span></div>
+          <div class="filter-chip" data-filter="glam"      style="background:linear-gradient(135deg,#ff6b9d,#c44569)"><span>Glamorous</span></div>
+          <div class="filter-chip" data-filter="bold"      style="background:linear-gradient(135deg,#a29bfe,#6c5ce7)"><span>Bold &amp; Bright</span></div>
+          <div class="filter-chip" data-filter="smokey"    style="background:linear-gradient(135deg,#636e72,#2d3436)"><span>Smokey Eye</span></div>
+          <div class="filter-chip" data-filter="fresh"     style="background:linear-gradient(135deg,#fab1a0,#ff7675)"><span>Fresh Face</span></div>
+          <div class="filter-chip" data-filter="evening"   style="background:linear-gradient(135deg,#fd79a8,#e84393)"><span>Evening Look</span></div>
+        </div></div>
+        <div class="tab-pane" id="tab-hair"><div class="filter-grid">
+          <div class="filter-chip" data-filter="blonde"     style="background:linear-gradient(135deg,#f9ca24,#f0932b)"><span>Blonde</span></div>
+          <div class="filter-chip" data-filter="brunette"   style="background:linear-gradient(135deg,#a55eea,#8e44ad)"><span>Brunette</span></div>
+          <div class="filter-chip" data-filter="red"        style="background:linear-gradient(135deg,#eb3b5a,#fc5c65)"><span>Auburn Red</span></div>
+          <div class="filter-chip" data-filter="black"      style="background:linear-gradient(135deg,#2d3436,#000)"><span>Jet Black</span></div>
+          <div class="filter-chip" data-filter="pastel"     style="background:linear-gradient(135deg,#a29bfe,#fab1a0)"><span>Pastel</span></div>
+          <div class="filter-chip" data-filter="highlights" style="background:linear-gradient(135deg,#ffeaa7,#fdcb6e)"><span>Highlights</span></div>
+        </div></div>
+        <div class="tab-pane" id="tab-skincare"><div class="filter-grid">
+          <div class="filter-chip" data-filter="smooth"   style="background:linear-gradient(135deg,#ffeaa7,#fdcb6e)"><span>Smooth</span></div>
+          <div class="filter-chip" data-filter="brighten" style="background:linear-gradient(135deg,#fff,#ffd89b)"><span>Brighten</span></div>
+          <div class="filter-chip" data-filter="glow"     style="background:linear-gradient(135deg,#ffafbd,#ffc3a0)"><span>Radiant Glow</span></div>
+          <div class="filter-chip" data-filter="clear"    style="background:linear-gradient(135deg,#a8edea,#fed6e3)"><span>Clear Skin</span></div>
+          <div class="filter-chip" data-filter="youthful" style="background:linear-gradient(135deg,#fbc2eb,#a6c1ee)"><span>Youthful</span></div>
+          <div class="filter-chip" data-filter="poreless" style="background:linear-gradient(135deg,#e0c3fc,#8ec5fc)"><span>Poreless</span></div>
+        </div></div>
+      </div>
+      <div class="card">
+        <h2>Recommended For You</h2>
+        <div class="rec-list empty" id="recList">
+          <div class="empty-msg">Complete skin analysis to get personalized product recommendations</div>
+        </div>
+      </div>
+      <div class="premium-banner">
+        <h3>✨ Unlock Pro Features</h3>
+        <p>AI dermatologist chat, aging predictions &amp; advanced skin analysis</p>
+        <button class="btn-white">Start Free Trial</button>
+      </div>
+    </div>
+  </div>
+  <div class="features-strip">
+    <div class="feat"><div class="f-icon">🤖</div><h4>AI-Powered</h4><p>Real-time skin analysis using advanced computer vision</p></div>
+    <div class="feat"><div class="f-icon">💄</div><h4>Virtual Try-On</h4><p>See makeup, hair &amp; treatments instantly on your face</p></div>
+    <div class="feat"><div class="f-icon">📊</div><h4>Personalized</h4><p>Custom beauty routines built around your unique skin</p></div>
+    <div class="feat"><div class="f-icon">🛍️</div><h4>Smart Shopping</h4><p>Curated product picks that match your skin profile</p></div>
+  </div>
+</div>
+<div class="toast" id="toast"><span id="toastMsg"></span></div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════════
+   GLOWFORGE — Fixed:
+   1. Face detection now uses AI pre-verification on capture
+   2. API error handling improved with detailed messages
+   ═══════════════════════════════════════════════════════════════════════ */
+
+let stream=null,rafId=null,faceBBox=null,kp=null;
+let noFaceCount=0,currentFilter=null,intensity=50;
+let nativeFD=null,useNative=false;
+let scanCanvas=null,scanCtx=null;
+let faceDetectedStable=false;
+
+const video=document.getElementById('video');
+const overlay=document.getElementById('overlay');
+const ctx=overlay.getContext('2d');
+const placeholder=document.getElementById('placeholder');
+const btnStart=document.getElementById('btnStart');
+const btnStop=document.getElementById('btnStop');
+const btnCapture=document.getElementById('btnCapture');
+const statusDot=document.getElementById('statusDot');
+const statusMsg=document.getElementById('statusMsg');
+
+let toastTimer;
+function toast(msg){
+  document.getElementById('toastMsg').textContent=msg;
+  const el=document.getElementById('toast');
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>el.classList.remove('show'),2800);
+}
+function setStatus(s,m){statusDot.className='status-dot '+s;statusMsg.textContent=m;}
+
+(function(){
+  if(typeof window.FaceDetector!=='undefined'){
+    try{nativeFD=new FaceDetector({fastMode:true,maxDetectedFaces:1});useNative=true;}
+    catch(e){useNative=false;}
+  }
+  setStatus('on','Ready — start your camera');
+})();
+
+btnStart.addEventListener('click',async()=>{
+  try{
+    setStatus('','Requesting camera…');
+    stream=await navigator.mediaDevices.getUserMedia({
+      video:{facingMode:'user',width:{ideal:1280,min:640},height:{ideal:720,min:480}},audio:false
+    });
+
+    await new Promise((resolve,reject)=>{
+      const timeout=setTimeout(()=>reject(new Error('Camera start timed out')),12000);
+      function onReady(){clearTimeout(timeout);video.play().then(resolve).catch(reject);}
+      video.onloadedmetadata=onReady;
+      video.onerror=()=>{clearTimeout(timeout);reject(new Error('Video element error'));};
+      video.srcObject=stream;
+      if(video.readyState>=video.HAVE_METADATA) onReady();
+    });
+
+    overlay.width=video.videoWidth;overlay.height=video.videoHeight;
+
+    scanCanvas=document.createElement('canvas');
+    scanCanvas.width=video.videoWidth;scanCanvas.height=video.videoHeight;
+    scanCtx=scanCanvas.getContext('2d');
+
+    video.style.display='block';placeholder.style.display='none';
+    btnStart.style.display='none';
+    btnStop.style.display='inline-block';
+    btnCapture.style.display='inline-block';btnCapture.disabled=true;
+    setStatus('warn','Position your face in the frame…');
+    detectLoop();
+    toast('✅ Camera on — position your face');
+  }catch(e){
+    console.error('camera',e);
+    if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;}
+    let msg='Camera error: ';
+    if(e.name==='NotAllowedError')msg+='Permission denied';
+    else if(e.name==='NotFoundError')msg+='No camera found';
+    else if(e.name==='NotReadableError')msg+='Camera in use';
+    else msg+=e.message;
+    setStatus('err',msg);toast('❌ '+msg);
+  }
+});
+
+btnStop.addEventListener('click',stopCamera);
+function stopCamera(){
+  if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;}
+  cancelAnimationFrame(rafId);rafId=null;
+  faceBBox=null;kp=null;faceDetectedStable=false;
+  video.srcObject=null;video.style.display='none';placeholder.style.display='flex';
+  btnStart.style.display='inline-block';btnStop.style.display='none';btnCapture.style.display='none';
+  ctx.clearRect(0,0,overlay.width,overlay.height);
+  setStatus('','Camera stopped');
+  currentFilter=null;
+  document.querySelectorAll('.filter-chip').forEach(c=>c.classList.remove('active'));
+}
+
+let consecutiveFaceFrames=0;
+async function detectLoop(){
+  if(!stream)return;
+  if(video.readyState===video.HAVE_ENOUGH_DATA){
+    let box=null;
+    try{box=useNative?await detectNative():await detectFallback();}
+    catch(e){console.warn('detect',e);}
+
+    ctx.clearRect(0,0,overlay.width,overlay.height);
+
+    if(box){
+      // Additional validation: check if box dimensions look face-like
+      const aspect=box.w/box.h;
+      const minSize=Math.min(video.videoWidth,video.videoHeight)*0.15;
+      const maxSize=Math.min(video.videoWidth,video.videoHeight)*0.9;
+      const sizeOK=box.w>=minSize&&box.w<=maxSize&&box.h>=minSize&&box.h<=maxSize;
+      const aspectOK=aspect>=0.6&&aspect<=1.3; // faces are roughly square
+      
+      if(sizeOK&&aspectOK){
+        faceBBox=box;
+        kp=estimateKeypoints(box);
+        noFaceCount=0;
+        consecutiveFaceFrames++;
+        
+        if(consecutiveFaceFrames>=5){
+          if(!faceDetectedStable){
+            faceDetectedStable=true;
+            btnCapture.disabled=false;
+            toast('✅ Face detected — ready to capture');
+          }
+          setStatus('on','✓ Face detected — ready to analyze');
+        }else{
+          setStatus('warn','Detecting face… hold still');
+        }
+        
+        drawFaceOverlay(box);
+        applyFilter();
+      }else{
+        // Detected something but doesn't look like a face
+        noFaceCount++;
+        consecutiveFaceFrames=0;
+        if(noFaceCount>8){
+          faceBBox=null;kp=null;
+          if(faceDetectedStable){
+            faceDetectedStable=false;
+            btnCapture.disabled=true;
+          }
+          setStatus('warn','Position your face in the frame');
+        }
+      }
+    }else{
+      noFaceCount++;
+      consecutiveFaceFrames=0;
+      if(noFaceCount>8){
+        faceBBox=null;kp=null;
+        if(faceDetectedStable){
+          faceDetectedStable=false;
+          btnCapture.disabled=true;
+        }
+        setStatus('warn','No face detected — position your face');
+      }
+    }
+  }
+  rafId=requestAnimationFrame(detectLoop);
+}
+
+async function detectNative(){
+  const r=await nativeFD.detect(video);
+  if(!r.length)return null;
+  const b=r[0].boundingBox;
+  return {x:b.x,y:b.y,w:b.width,h:b.height};
+}
+
+async function detectFallback(){
+  const W=scanCanvas.width,H=scanCanvas.height;
+  scanCtx.drawImage(video,0,0,W,H);
+  const d=scanCtx.getImageData(0,0,W,H).data;
+
+  let minX=W,maxX=0,minY=H,maxY=0,count=0;
+  const step=4;
+
+  for(let y=0;y<H;y+=step){
+    for(let x=0;x<W;x+=step){
+      const i=(y*W+x)*4;
+      if(isSkin(d[i],d[i+1],d[i+2])){
+        if(x<minX)minX=x;if(x>maxX)maxX=x;
+        if(y<minY)minY=y;if(y>maxY)maxY=y;
+        count++;
+      }
+    }
+  }
+
+  if(count<(W*H)/(step*step)*.02)return null;
+
+  const bw=maxX-minX,bh=maxY-minY;
+  if(bh<40||bw<30)return null;
+  if(bw/bh<0.4||bw/bh>2.0)return null;
+
+  const faceH=Math.min(bh,bw*1.4);
+  return {x:minX,y:minY,w:bw,h:faceH};
+}
+
+function isSkin(r,g,b){
+  if(r<20&&g<20&&b<20)return false;
+  if(r>240&&g>240&&b>240)return false;
+  if(r<g||r<b)return false;
+  const mx=Math.max(r,g,b);
+  const rg=r/g,rb=r/b;
+  if(rg<0.75||rg>2.5)return false;
+  if(rb<0.6||rb>3.0)return false;
+  if((mx-Math.min(r,g,b))/mx>0.75)return false;
+  return true;
+}
+
+function estimateKeypoints(box){
+  const {x,y,w,h}=box;
+  const cx=x+w/2,cy=y+h/2;
+  const pt=(px,py)=>({x:px,y:py});
+
+  const eyeY=y+h*.38,noseY=y+h*.55;
+  const mTopY=y+h*.70,mBotY=y+h*.78,mMidY=(mTopY+mBotY)/2;
+  const cheekY=y+h*.60,fhY=y+h*.12;
+  const leX=cx-w*.22,reX=cx+w*.22;
+  const eHW=w*.10,eHH=h*.04;
+  const lipW=w*.18;
+
+  const K={};
+
+  K[33]=pt(leX-eHW,eyeY);K[36]=pt(leX-eHW*.6,eyeY-eHH*.3);K[37]=pt(leX-eHW*.2,eyeY-eHH);
+  K[38]=pt(leX+eHW*.2,eyeY-eHH);K[39]=pt(leX+eHW*.6,eyeY-eHH*.3);K[40]=pt(leX+eHW,eyeY);
+  K[41]=pt(leX+eHW*.6,eyeY+eHH*.3);K[42]=pt(leX-eHW*.2,eyeY+eHH*.5);K[43]=pt(leX-eHW*.6,eyeY+eHH*.3);
+  K[44]=pt(leX-eHW,eyeY);K[45]=pt(leX-eHW*.6,eyeY+eHH*.1);K[46]=pt(leX-eHW*.2,eyeY+eHH*.2);
+  K[47]=pt(leX+eHW*.2,eyeY+eHH*.1);K[133]=pt(leX-eHW,eyeY);K[144]=pt(leX,eyeY+eHH);
+  K[153]=pt(leX+eHW*.5,eyeY);K[157]=pt(leX+eHW*.8,eyeY-eHH*.2);K[158]=pt(leX,eyeY-eHH);
+  K[159]=pt(leX-eHW*.1,eyeY-eHH*.6);K[160]=pt(leX-eHW*.3,eyeY-eHH*.7);K[161]=pt(leX-eHW*.6,eyeY-eHH*.4);
+  K[173]=pt(leX+eHW*1.1,eyeY);K[246]=pt(leX-eHW*1.1,eyeY);
+
+  K[263]=pt(reX+eHW,eyeY);K[266]=pt(reX+eHW*.6,eyeY-eHH*.3);K[267]=pt(reX+eHW*.2,eyeY-eHH);
+  K[268]=pt(reX-eHW*.2,eyeY-eHH);K[269]=pt(reX-eHW*.6,eyeY-eHH*.3);K[270]=pt(reX-eHW,eyeY);
+  K[271]=pt(reX-eHW*.6,eyeY+eHH*.3);K[272]=pt(reX+eHW*.2,eyeY+eHH*.5);K[273]=pt(reX+eHW*.6,eyeY+eHH*.3);
+  K[274]=pt(reX+eHW,eyeY);K[275]=pt(reX+eHW*.6,eyeY+eHH*.1);K[276]=pt(reX+eHW*.2,eyeY+eHH*.2);
+  K[277]=pt(reX-eHW*.2,eyeY+eHH*.1);K[362]=pt(reX+eHW,eyeY);K[373]=pt(reX,eyeY+eHH);
+  K[380]=pt(reX-eHW*.5,eyeY);K[384]=pt(reX-eHW*.8,eyeY-eHH*.2);K[385]=pt(reX,eyeY-eHH);
+  K[386]=pt(reX+eHW*.1,eyeY-eHH*.6);K[387]=pt(reX+eHW*.3,eyeY-eHH*.7);K[388]=pt(reX+eHW*.6,eyeY-eHH*.4);
+  K[398]=pt(reX-eHW*1.1,eyeY);K[466]=pt(reX+eHW*1.1,eyeY);
+
+  [[61,cx-lipW,mTopY],[185,cx-lipW*.7,mTopY-h*.005],[40,cx-lipW*.4,mTopY-h*.01],
+   [39,cx-lipW*.15,mTopY-h*.015],[37,cx,mTopY-h*.02],[0,cx+lipW*.15,mTopY-h*.015],
+   [267,cx+lipW*.4,mTopY-h*.01],[269,cx+lipW*.7,mTopY-h*.005],[270,cx+lipW,mTopY],
+   [409,cx+lipW*.8,mMidY],[291,cx+lipW,mBotY],[375,cx+lipW*.7,mBotY+h*.005],
+   [321,cx+lipW*.3,mBotY+h*.01],[405,cx,mBotY+h*.012],[314,cx-lipW*.3,mBotY+h*.01],
+   [17,cx-lipW*.7,mBotY+h*.005],[84,cx-lipW,mBotY],[181,cx-lipW*.8,mMidY],
+   [91,cx-lipW*.5,mMidY+h*.005],[146,cx-lipW*.2,mMidY]
+  ].forEach(([i,px,py])=>{K[i]=pt(px,py);});
+
+  K[116]=pt(cx-w*.38,cheekY);K[345]=pt(cx+w*.38,cheekY);
+  K[6]=pt(cx,y+h*.30);K[168]=pt(cx,fhY);K[10]=pt(cx,y+h*.18);
+
+  return K;
+}
+
+function drawFaceOverlay(box){
+  const {x,y,w,h}=box;
+  ctx.strokeStyle='rgba(232,99,124,.25)';ctx.lineWidth=8;
+  ctx.beginPath();ctx.roundRect(x-4,y-4,w+8,h+8,12);ctx.stroke();
+  ctx.strokeStyle='rgba(232,99,124,.7)';ctx.lineWidth=2;
+  ctx.beginPath();ctx.roundRect(x,y,w,h,8);ctx.stroke();
+
+  if(!kp)return;
+  ctx.strokeStyle='rgba(232,99,124,.55)';ctx.lineWidth=1.5;
+  polyline([33,36,37,38,39,40,41,42,43,44,45,46,47,33]);
+  polyline([263,266,267,268,269,270,271,272,273,274,275,276,277,263]);
+  polyline([61,185,40,39,37,0,267,269,270,409,291,375,321,405,314,17,84,181,91,146,61]);
+}
+
+function polyline(indices){
+  ctx.beginPath();
+  let started=false;
+  indices.forEach(i=>{
+    const p=kp[i];if(!p)return;
+    if(!started){ctx.moveTo(p.x,p.y);started=true;}else ctx.lineTo(p.x,p.y);
+  });
+  ctx.stroke();
+}
+
+function applyFilter(){
+  if(!currentFilter||!kp)return;
+  const a=intensity/100;
+  ({
+    natural:()=>{blush([255,182,193],a*.4);lips([255,160,180],a*.5);eyeshadow([200,180,160],a*.3);},
+    glam:()=>{blush([255,107,157],a*.6);lips([200,50,100],a*.8);eyeshadow([180,140,200],a*.7);highlight(a*.5);},
+    bold:()=>{lips([162,155,254],a*.9);eyeshadow([162,155,254],a*.8);eyeliner(a*.7);},
+    smokey:()=>{eyeshadow([60,60,60],a*.9);eyeliner(a*.9);lips([120,80,80],a*.6);},
+    fresh:()=>{blush([250,177,160],a*.5);lips([255,140,130],a*.6);glow(a*.4);},
+    evening:()=>{lips([180,40,80],a*.9);eyeshadow([100,60,80],a*.8);eyeliner(a*.8);highlight(a*.6);},
+    blonde:()=>hairColor([249,202,36],a),
+    brunette:()=>hairColor([101,67,33],a),
+    red:()=>hairColor([235,59,90],a),
+    black:()=>hairColor([20,20,20],a),
+    pastel:()=>hairColor([200,180,255],a),
+    highlights:()=>hairHighlights(a),
+    smooth:()=>skinOverlay([255,234,167],a*.3,a*3),
+    brighten:()=>skinOverlay([255,255,255],a*.2,0),
+    glow:()=>glow(a),
+    clear:()=>{skinOverlay([255,240,245],a*.25,0);skinOverlay([168,237,234],a*.1,a*2);},
+    youthful:()=>{glow(a*.8);skinOverlay([255,234,167],a*.2,a*2);blush([255,182,193],a*.4);},
+    poreless:()=>skinOverlay([224,195,252],a*.15,a*4)
+  })[currentFilter]?.();
+}
+
+function lips(c,a){
+  const idx=[61,185,40,39,37,0,267,269,270,409,291,375,321,405,314,17,84,181,91,146];
+  ctx.fillStyle=`rgba(${c[0]},${c[1]},${c[2]},${a})`;
+  ctx.beginPath();
+  let started=false;
+  idx.forEach(i=>{const p=kp[i];if(!p)return;if(!started){ctx.moveTo(p.x,p.y);started=true;}else ctx.lineTo(p.x,p.y);});
+  ctx.closePath();ctx.fill();
+  ctx.fillStyle=`rgba(255,255,255,${a*.3})`;ctx.fill();
+}
+function blush(c,a){
+  if(kp[116])blushAt(kp[116].x,kp[116].y,c,a);
+  if(kp[345])blushAt(kp[345].x,kp[345].y,c,a);
+}
+function blushAt(x,y,c,a){
+  const g=ctx.createRadialGradient(x,y,0,x,y,50);
+  g.addColorStop(0,`rgba(${c[0]},${c[1]},${c[2]},${a})`);g.addColorStop(1,`rgba(${c[0]},${c[1]},${c[2]},0)`);
+  ctx.fillStyle=g;ctx.fillRect(x-50,y-50,100,100);
+}
+function eyeshadow(c,a){
+  eyeAt([33,160,158,133,153,144],c,a);
+  eyeAt([263,387,385,362,380,373],c,a);
+}
+function eyeAt(indices,c,a){
+  let sx=0,sy=0,n=0;
+  indices.forEach(i=>{if(kp[i]){sx+=kp[i].x;sy+=kp[i].y;n++;}});
+  if(!n)return;
+  const ecx=sx/n,ecy=sy/n;
+  const g=ctx.createRadialGradient(ecx,ecy-15,0,ecx,ecy-15,40);
+  g.addColorStop(0,`rgba(${c[0]},${c[1]},${c[2]},${a})`);g.addColorStop(1,`rgba(${c[0]},${c[1]},${c[2]},0)`);
+  ctx.fillStyle=g;ctx.fillRect(ecx-40,ecy-55,80,50);
+}
+function eyeliner(a){
+  ctx.strokeStyle=`rgba(0,0,0,${a})`;ctx.lineWidth=2.5;
+  polyline([33,246,161,160,159,158,157,173]);
+  polyline([263,466,388,387,386,385,384,398]);
+}
+function highlight(a){
+  [6,168,10].forEach(i=>{
+    const p=kp[i];if(!p)return;
+    const g=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,28);
+    g.addColorStop(0,`rgba(255,255,255,${a*.8})`);g.addColorStop(1,'rgba(255,255,255,0)');
+    ctx.fillStyle=g;ctx.fillRect(p.x-28,p.y-28,56,56);
+  });
+}
+function hairColor(c,a){
+  if(!faceBBox)return;
+  const {x,y,w}=faceBBox;
+  const g=ctx.createLinearGradient(0,0,0,y);
+  g.addColorStop(0,`rgba(${c[0]},${c[1]},${c[2]},${a*.6})`);g.addColorStop(1,`rgba(${c[0]},${c[1]},${c[2]},0)`);
+  ctx.fillStyle=g;ctx.fillRect(x-100,0,w+200,y+50);
+}
+function hairHighlights(a){
+  if(!faceBBox)return;
+  const {x,y,w}=faceBBox;
+  for(let i=0;i<5;i++){
+    const px=x+w*(i/4);
+    const g=ctx.createLinearGradient(px,0,px,y);
+    g.addColorStop(0,`rgba(255,234,167,${a*.5})`);g.addColorStop(1,'rgba(255,234,167,0)');
+    ctx.fillStyle=g;ctx.fillRect(px-10,0,20,y+30);
+  }
+}
+function glow(a){
+  if(!faceBBox)return;
+  const gcx=faceBBox.x+faceBBox.w/2,gcy=faceBBox.y+faceBBox.h/2;
+  const g=ctx.createRadialGradient(gcx,gcy,0,gcx,gcy,200);
+  g.addColorStop(0,`rgba(255,220,200,${a*.4})`);
+  g.addColorStop(.5,`rgba(255,200,180,${a*.2})`);
+  g.addColorStop(1,'rgba(255,175,189,0)');
+  ctx.fillStyle=g;ctx.fillRect(gcx-200,gcy-200,400,400);
+}
+function skinOverlay(c,a,blur){
+  if(!faceBBox)return;
+  const {x,y,w,h}=faceBBox;
+  if(blur)ctx.filter=`blur(${blur}px)`;
+  ctx.fillStyle=`rgba(${c[0]},${c[1]},${c[2]},${a})`;
+  ctx.fillRect(x-20,y-20,w+40,h+40);
+  ctx.filter='none';
+}
+
+document.getElementById('intensitySlider').addEventListener('input',e=>{
+  intensity=+e.target.value;
+  document.getElementById('intensityVal').textContent=intensity+'%';
+});
+document.querySelectorAll('.tab-btn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
+    document.getElementById('tab-'+btn.dataset.tab).classList.add('active');
+  });
+});
+document.querySelectorAll('.filter-chip').forEach(chip=>{
+  chip.addEventListener('click',()=>{
+    document.querySelectorAll('.filter-chip').forEach(c=>c.classList.remove('active'));
+    chip.classList.add('active');
+    currentFilter=chip.dataset.filter;
+    toast('✨ '+chip.querySelector('span').textContent+' applied');
+  });
+});
+
+const capId=m=>m[0].toUpperCase()+m.slice(1);
+
+btnCapture.addEventListener('click',async()=>{
+  if(!faceBBox){toast('⚠️ No face detected');return;}
+  
+  btnCapture.disabled=true;btnCapture.textContent='Analyzing…';
+  setStatus('on','AI analyzing your skin…');
+  
+  try{
+    const snap=document.createElement('canvas');
+    snap.width=video.videoWidth;snap.height=video.videoHeight;
+    const sCtx=snap.getContext('2d');
+    sCtx.translate(snap.width,0);sCtx.scale(-1,1);
+    sCtx.drawImage(video,0,0);
+    const b64=snap.toDataURL('image/jpeg',.85).split(',')[1];
+
+    // First: verify it's actually a human face using Claude
+    const verifyRes=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','anthropic-version':'2023-06-01'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-20250514',
+        max_tokens:100,
+        messages:[{role:'user',content:[
+          {type:'image',source:{type:'base64',media_type:'image/jpeg',data:b64}},
+          {type:'text',text:'Is there a clear, visible human face in this image? Reply with only YES or NO.'}
+        ]}]
+      })
+    });
+
+    if(!verifyRes.ok){
+      const errText=await verifyRes.text();
+      throw new Error(`API error ${verifyRes.status}: ${errText}`);
+    }
+
+    const verifyData=await verifyRes.json();
+    const verifyAnswer=(verifyData.content.find(c=>c.type==='text')?.text||'').trim().toUpperCase();
+    
+    if(!verifyAnswer.includes('YES')){
+      throw new Error('No human face detected in image. Please position your face clearly in the camera frame.');
+    }
+
+    // Now do the full analysis
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','anthropic-version':'2023-06-01'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-20250514',
+        max_tokens:1500,
+        messages:[{role:'user',content:[
+          {type:'image',source:{type:'base64',media_type:'image/jpeg',data:b64}},
+          {type:'text',text:
+            'You are an expert dermatologist AI. Analyze this face photo carefully and provide an accurate skin analysis.\n\n'+
+            'Return ONLY valid JSON (no markdown, no backticks) with this exact structure:\n'+
+            '{\n'+
+            '  "clarity": <number 0-100 based on skin clarity/blemishes>,\n'+
+            '  "hydration": <number 0-100 based on skin moisture/dryness>,\n'+
+            '  "texture": <number 0-100 based on smoothness/roughness>,\n'+
+            '  "radiance": <number 0-100 based on skin glow/dullness>,\n'+
+            '  "skinType": "<oily|dry|combination|normal>",\n'+
+            '  "concerns": [<array of specific concerns seen>],\n'+
+            '  "strengths": [<array of positive attributes>],\n'+
+            '  "recommendations": [\n'+
+            '    {"type":"<serum|moisturizer|cleanser|treatment>","name":"<product name>","reason":"<why>","price":<number>}\n'+
+            '  ]\n'+
+            '}\n\n'+
+            'Be accurate and specific based on what you actually see.'}
+        ]}]
+      })
+    });
+    
+    if(!res.ok){
+      const errText=await res.text();
+      throw new Error(`Analysis failed (${res.status}): ${errText}`);
+    }
+    
+    const data=await res.json();
+    const raw=(data.content.find(c=>c.type==='text')?.text||'{}').replace(/```json|```/g,'').trim();
+    const analysis=JSON.parse(raw);
+
+    ['clarity','hydration','texture','radiance'].forEach((m,i)=>{
+      setTimeout(()=>{
+        const v=analysis[m]||0;
+        document.getElementById('v'+capId(m)).textContent=v;
+        document.getElementById('b'+capId(m)).style.width=v+'%';
+      },i*180);
+    });
+
+    const list=document.getElementById('recList');
+    list.classList.remove('empty');
+    list.innerHTML='';
+    
+    if(analysis.recommendations&&analysis.recommendations.length>0){
+      const thumbs={
+        serum:'linear-gradient(135deg,#ffd1dc,#ffb6c1)',
+        moisturizer:'linear-gradient(135deg,#a29bfe,#6c5ce7)',
+        cleanser:'linear-gradient(135deg,#fab1a0,#ff7675)',
+        treatment:'linear-gradient(135deg,#fd79a8,#e84393)'
+      };
+      
+      analysis.recommendations.forEach(r=>{
+        const el=document.createElement('div');el.className='rec-item';
+        el.innerHTML=`<div class="rec-thumb" style="background:${thumbs[r.type]||'linear-gradient(135deg,#e8637c,#d4845a)'}"></div>
+          <div class="rec-info"><div class="rec-name">${r.name}</div><div class="rec-desc">${r.reason}</div><div class="rec-price">$${r.price}.00</div></div>`;
+        el.addEventListener('click',()=>toast(r.name+' added to wishlist 🛍️'));
+        list.appendChild(el);
+      });
+    }else{
+      list.classList.add('empty');
+      list.innerHTML='<div class="empty-msg">No specific recommendations at this time</div>';
+    }
+    
+    setStatus('on','✓ Analysis complete'); 
+    toast('✨ AI analysis complete');
+    
+  }catch(e){
+    console.error('Analysis error:',e);
+    setStatus('err','Analysis failed');
+    toast('❌ '+e.message);
+  }
+  
+  btnCapture.disabled=false;
+  btnCapture.textContent='Capture & Analyze';
+});
+</script>
+</body>
+</html>
